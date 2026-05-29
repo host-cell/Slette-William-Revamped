@@ -228,22 +228,33 @@ let toLoad=3;
 
 console.log("[WAI] Images loaded")
 
-const passSound=new Audio('./sound.mp3');
-const playbackTheme=new Audio('./playbacktheme.mp3');
-const pauseTheme=new Audio('./pausetheme.mp3');
-const slettedTheme=new Audio('./slettedtheme.mp3');
-const milestoneSound=new Audio('./over.mp3');
-const sleSound=new Audio('./sle.mp3');
-const ttedSound=new Audio('./tted.mp3');
+const passSound      = new Audio('./sound.mp3');
+const playbackTheme  = new Audio('./playbacktheme.mp3');
+const pauseTheme     = new Audio('./pausetheme.mp3');
+const slettedTheme   = new Audio('./slettedtheme.mp3');
+const milestoneSound = new Audio('./over.mp3');
+const sleSound       = new Audio('./sle.mp3');
+const ttedSound      = new Audio('./tted.mp3');
 const bg1=new Audio('./back.mp3');
 const bg2=new Audio('./back2.mp3');
 const bg3=new Audio('./end.mp3');
 const bgTracks=[bg1,bg2];
+
+// FIX: all audio sources now properly mapped to their slider categories
 function applyVols(){
-  const mv=+S.musicVol.value,sv=+S.sfxVol.value,dv=+S.deathVol.value;
-  bgTracks.forEach(t=>t.volume=mv); bg3.volume=mv;
-  passSound.volume=sv; milestoneSound.volume=sv;
-  sleSound.volume=dv; ttedSound.volume=dv;
+  const mv=+S.musicVol.value, sv=+S.sfxVol.value, dv=+S.deathVol.value;
+  // Music category: background tracks + ending theme + pause + playback
+  bgTracks.forEach(t=>t.volume=mv);
+  bg3.volume=mv;
+  pauseTheme.volume=mv;
+  playbackTheme.volume=mv;
+  // SFX category: score sounds
+  passSound.volume=sv;
+  milestoneSound.volume=sv;
+  // Death SFX category: death sequence sounds
+  sleSound.volume=dv;
+  ttedSound.volume=dv;
+  slettedTheme.volume=dv;
 }
 
 console.log("[WAI] Sound effects and themes loaded! (.mp3)")
@@ -341,6 +352,8 @@ let ttedSoundPlayed=false;
 let capsules=[];
 let tabHiddenAt=null;
 let warnFlashTimer=null;
+// FIX: flag to prevent multiple jet spawn chains from starting
+let jetSpawnScheduled=false;
 
 setInterval(()=>{
   if(document.hidden&&!gameOver&&!paused){
@@ -399,8 +412,6 @@ function showToast(msg,color='#5f5'){
   t._to=setTimeout(()=>t.classList.remove('show'),2200);
 }
 
-// ── CAPSULE SPAWNING ──
-// capsules now have a `parentJet` reference for crashed-jet pickups
 function spawnCapsule(x,y,parentJet){
   const type=POWERUP_TYPES[Math.floor(Math.random()*POWERUP_TYPES.length)];
   capsules.push({x,y,vy:0,type,angle:0,collected:false,parentJet:parentJet||null,landed:false});
@@ -419,7 +430,6 @@ function updateCapsules(){
   const gY=ground()+60;
   for(let i=capsules.length-1;i>=0;i--){
     const c=capsules[i];
-    // If capsule belongs to a crashed jet that hasn't landed yet, follow the jet
     if(c.parentJet&&!c.parentJet.fullyLanded){
       c.x=c.parentJet.x+c.parentJet.width/2;
       c.y=c.parentJet.y+c.parentJet.height;
@@ -427,7 +437,6 @@ function updateCapsules(){
       drawCapsule(c);
       continue;
     }
-    // Once jet lands (or no parent), capsule falls/bounces freely
     if(!c.landed){
       c.vy+=.3;c.y+=c.vy;c.angle+=.04;
       if(c.y>gY){c.y=gY;c.vy*=-.45;if(Math.abs(c.vy)<1)c.landed=true;}
@@ -435,7 +444,6 @@ function updateCapsules(){
       c.angle+=.01;
     }
     drawCapsule(c);
-    // Collection check
     if(!c.collected&&dino.x<c.x+16&&dino.x+dino.width>c.x-16&&dino.y<c.y+16&&dino.y+dino.height>c.y-16){
       c.collected=true;applyPowerup(c.type);
       for(let j=0;j<14;j++)impactParticles.push({x:c.x,y:c.y,dx:(Math.random()-.5)*6,dy:(Math.random()-.5)*6-2,size:Math.random()*4+2,life:35,color:c.type.color});
@@ -479,6 +487,8 @@ function initState(){
   gameOver=false;paused=false;jetsUnlocked=false;lastMilestone=0;
   slettedPhase=0;slettedTrail=[];screenShakeF=0;
   ttedSoundPlayed=false;tabHiddenAt=null;
+  // FIX: reset jet spawn lock on game restart
+  jetSpawnScheduled=false;
   updateTabLockState();
 }
 function isDefault(){
@@ -502,43 +512,46 @@ function spawnCactus(){
 }
 
 // ══════════════════════════════════════════════════════════════
-//  JET SYSTEM — fully rewritten
-//  - Continuous drops while jet is visible
-//  - 20% crash chance; crash = smoke + screen shake + single loot
-//  - Crashed jet wreckage is collidable (pickup loot on touch)
-//  - Falling cactuses kill player, bounce once, then slide off
+//  JET SYSTEM — fixed & balanced
+//  FIXES:
+//   1. jetSpawnScheduled flag prevents multiple spawn chains
+//   2. Drops are rate-limited: max 2 falling cactuses in air at once,
+//      minimum 90-frame cooldown between drops, safe-zone check vs dino X
+//   3. Drop horizontal wobble removed (was causing unkillable angles)
 // ══════════════════════════════════════════════════════════════
 
 function spawnJet(){
-  if(paused||gameOver)return;
+  if(paused||gameOver){
+    // Release the lock so the chain can restart when unpaused/restarted
+    jetSpawnScheduled=false;
+    return;
+  }
   const willCrash=Math.random()<0.30;
-  // crashAt: somewhere between 30% and 70% of canvas width so it lands on screen
   const crashAt=willCrash?(canvas.width*(0.30+Math.random()*0.40)):Infinity;
 
   jets.push({
-    // position / movement
     x:-120, y:Math.random()*90+20,
     width:100, height:60,
     speed:4+Math.random()*1.5,
-    // drop logic
-    dropCooldown:Math.random(100, 150)*65,          // first drop fires after 90 frames of being on-screen
-    framesOnScreen:0,         // incremented once jet enters canvas
-    // crash logic
+    // FIX: first drop fires after 90–150 frames on-screen (was 65, too fast)
+    dropCooldown: Math.floor(Math.random()*60)+90,
+    framesOnScreen:0,
     willCrash, crashAt,
     crashTriggered:false,
     crashParticles:[],
     smokeParticles:[],
-    // landing state
-    falling:false,            // true when crash triggered
-    vy:0,                     // vertical velocity during crash fall
-    angle:0,                  // rotation while falling
-    fullyLanded:false,        // true once it has hit the ground
-    landedFrames:0,           // count frames after landing (for smoke fade)
-    lootSpawned:false,        // only spawn capsule once
-    // wreckage hitbox (active while on ground)
+    falling:false,
+    vy:0,
+    angle:0,
+    fullyLanded:false,
+    landedFrames:0,
+    lootSpawned:false,
     active:true,
   });
-  setTimeout(spawnJet, Math.random()*5000+5000); 
+
+  // FIX: single recursive chain, 7–14 second spacing between jets
+  const nextDelay = Math.floor(Math.random()*7000)+7000;
+  setTimeout(spawnJet, nextDelay);
 }
 
 function triggerWarning(){
@@ -547,32 +560,41 @@ function triggerWarning(){
   warnFlashTimer=setTimeout(()=>wf.classList.remove('show'),1100);
 }
 
-// Drop a cactus bomb from a jet
+// FIX: safe drop — checks max falling cactus count AND safe distance from dino
 function jetDrop(jet){
-  // Don't drop on top of existing cactuses — check for nearby ground cactuses
+  // FIX: cap simultaneous falling cactuses at 2 — prevents overwhelming the player
+  if(fallingCactuses.length>=2)return;
+
   const dropX=jet.x+jet.width/2-10;
+
+  // Don't drop if too close to a ground cactus
   for(const c of cactuses){
-    if(Math.abs(c.x-dropX)<80)return; // too close to a ground cactus, skip drop
+    if(Math.abs(c.x-dropX)<80)return;
   }
+
+  // FIX: don't drop if the drop will land directly on the dino's current X
+  // Give the player at least 180px of escape room on each side
+  const dinoMid=dino.x+dino.width/2;
+  if(Math.abs(dropX-dinoMid)<180)return;
+
   fallingCactuses.push({
     x:dropX, y:jet.y+jet.height,
     width:22, height:44,
     dy:2.5,
-    dx:(Math.random()-0.5)*1.2,  // slight horizontal wobble only
-    bounceCount:0,               // how many times it's bounced
+    dx:0,          // FIX: no horizontal wobble — pure vertical fall is more readable and fair
+    bounceCount:0,
     age:0,
-    dead:false,                  // true when should be removed
+    dead:false,
   });
-  // triggerWarning(); - scrapped because it may be too distracting
-} 
+}
 
 function updateJets(){
-  const gY=ground()+60; // ground surface Y
+  const gY=ground()+60;
 
   for(let i=jets.length-1;i>=0;i--){
     const jet=jets[i];
 
-    // ── Exhaust particles (always, while jet is moving) ──
+    // Exhaust particles (always, while jet is moving)
     if(!jet.fullyLanded){
       for(let k=0;k<2;k++){
         jetParticles.push({
@@ -590,8 +612,6 @@ function updateJets(){
     // ── FLYING (not crashed yet) ──
     if(!jet.crashTriggered){
       jet.x+=jet.speed;
-
-      // Count frames once jet is on screen
       if(jet.x>-jet.width)jet.framesOnScreen++;
 
       // Ground shadow
@@ -604,9 +624,8 @@ function updateJets(){
       // Trigger crash?
       if(jet.willCrash && jet.x>=jet.crashAt){
         jet.crashTriggered=true;
-        jet.vy=-1; // slight upward kick before falling
+        jet.vy=-1;
         screenShakeF=20;screenShakeA=10;
-        // Explosion burst
         for(let k=0;k<40;k++){
           jet.crashParticles.push({
             x:jet.x+jet.width/2, y:jet.y+jet.height/2,
@@ -618,29 +637,29 @@ function updateJets(){
       }
 
       // Normal flying — drop cactuses
+      // FIX: only drop while jet is on-screen and has clearance; cooldown is 90–150 frames
       const onScreen = jet.framesOnScreen > 30 && jet.x < canvas.width - 160;
-      if(onScreen){
+      if(onScreen && !jet.willCrash){
         jet.dropCooldown--;
         if(jet.dropCooldown<=0){
           jetDrop(jet);
-          jet.dropCooldown = Math.floor(Math.random()*23)+6;
+          // FIX: next drop cooldown is 90–150 frames (~1.5–2.5 seconds) — was 6–23 (too fast)
+          jet.dropCooldown = Math.floor(Math.random()*60)+90;
         }
       }
 
       // Draw jet
       ctx.drawImage(jetImg,jet.x,jet.y,jet.width,jet.height);
 
-      // Remove when off right edge (non-crashing jets)
       if(!jet.willCrash && jet.x>canvas.width+140){jets.splice(i,1);continue;}
 
     } else if(!jet.fullyLanded){
-      // ── CRASHING — falling to ground ──
+      // ── CRASHING ──
       jet.vy+=0.45;
       jet.x+=jet.speed*0.4;
       jet.y+=jet.vy;
       jet.angle+=0.06;
 
-      // Smoke trail while falling
       for(let k=0;k<3;k++){
         jet.smokeParticles.push({
           x:jet.x+jet.width/2+(Math.random()-0.5)*20,
@@ -653,7 +672,6 @@ function updateJets(){
         });
       }
 
-      // Draw crash explosion particles
       for(let k=jet.crashParticles.length-1;k>=0;k--){
         const p=jet.crashParticles[k];
         p.x+=p.dx;p.y+=p.dy;p.dy+=0.2;p.life--;
@@ -662,21 +680,17 @@ function updateJets(){
         ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0.1,p.size),0,Math.PI*2);ctx.fill();ctx.restore();
       }
 
-      // Draw spinning jet
       ctx.save();
       ctx.translate(jet.x+jet.width/2,jet.y+jet.height/2);
       ctx.rotate(jet.angle);
       ctx.drawImage(jetImg,-jet.width/2,-jet.height/2,jet.width,jet.height);
       ctx.restore();
 
-      // Has it hit the ground?
       if(jet.y+jet.height>=gY){
         jet.y=gY-jet.height;
         jet.fullyLanded=true;
-        jet.angle=0.15; // slight tilt on ground
-        // Big impact shake
+        jet.angle=0.15;
         screenShakeF=30;screenShakeA=16;
-        // Impact particles
         for(let k=0;k<25;k++){
           impactParticles.push({
             x:jet.x+jet.width/2,y:gY,
@@ -691,8 +705,7 @@ function updateJets(){
       // ── LANDED WRECKAGE ──
       jet.landedFrames++;
 
-      // Ongoing smoke from wreckage
-      if(jet.landedFrames<300){ // smoke for ~5 seconds
+      if(jet.landedFrames<300){
         for(let k=0;k<2;k++){
           jet.smokeParticles.push({
             x:jet.x+jet.width/2+(Math.random()-0.5)*25,
@@ -706,7 +719,6 @@ function updateJets(){
         }
       }
 
-      // Draw tilted wreckage
       ctx.save();
       ctx.translate(jet.x+jet.width/2,jet.y+jet.height/2);
       ctx.rotate(jet.angle);
@@ -714,16 +726,13 @@ function updateJets(){
       ctx.drawImage(jetImg,-jet.width/2,-jet.height/2,jet.width,jet.height);
       ctx.restore();
 
-      // Spawn loot once (20% crash = this always runs exactly once per crashed jet)
       if(!jet.lootSpawned){
         jet.lootSpawned=true;
         spawnCapsule(jet.x+jet.width/2, jet.y, jet);
       }
 
-      // Player touches wreckage → collect loot
       const wx=jet.x, wy=jet.y, ww=jet.width, wh=jet.height;
       if(dino.x<wx+ww&&dino.x+dino.width>wx&&dino.y<wy+wh&&dino.y+dino.height>wy+5){
-        // Find the capsule that belongs to this jet and collect it
         for(let ci=capsules.length-1;ci>=0;ci--){
           const cap=capsules[ci];
           if(cap.parentJet===jet&&!cap.collected){
@@ -738,23 +747,17 @@ function updateJets(){
             break;
           }
         }
-        // Destroy wreckage after looting
         jet.lootCollected=true;
       }
 
-      // Remove wreckage after smoke fades or loot collected and smoke done
       if(jet.landedFrames>400||(jet.lootCollected&&jet.landedFrames>60)){
         jets.splice(i,1);continue;
       }
-
-      // Wreck moves off screen?
       if(jet.x+jet.width<-20){jets.splice(i,1);continue;}
-
-      // Wreckage slowly drifts left with game speed
       jet.x-=gS('dinoSpeed');
     }
 
-    // ── SMOKE PARTICLES (drawn for all crash states) ──
+    // ── SMOKE PARTICLES ──
     for(let k=jet.smokeParticles.length-1;k>=0;k--){
       const p=jet.smokeParticles[k];
       p.x+=p.dx;p.y+=p.dy;p.life--;
@@ -762,17 +765,12 @@ function updateJets(){
       const lifeFrac=Math.max(0,Math.min(1,p.life/p.maxLife));
       const a=lifeFrac*0.45;
       const r=Math.max(0.1,p.size*(lifeFrac+0.3));
-      ctx.save();
-      ctx.globalAlpha=a;
-      ctx.fillStyle='#888';
-      ctx.beginPath();
-      ctx.arc(p.x,p.y,r,0,Math.PI*2);
-      ctx.fill();
-      ctx.restore();
+      ctx.save();ctx.globalAlpha=a;ctx.fillStyle='#888';
+      ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.restore();
     }
   }
 
-  // ── Exhaust trail render ──
+  // Exhaust trail render
   for(let i=jetParticles.length-1;i>=0;i--){
     const p=jetParticles[i];p.x+=p.dx;p.y+=p.dy;p.life--;
     if(p.life<=0){jetParticles.splice(i,1);continue;}
@@ -788,13 +786,12 @@ function updateJets(){
     if(fc.dead){fallingCactuses.splice(i,1);continue;}
 
     fc.age++;
-    fc.dy+=0.35;  // gravity — accelerates downward
-    fc.y+=(fc.dy - Math.random(1.5, 2.5));
-    fc.x+=(fc.dx + Math.random(2.5, 3.5));
-    fc.dx=-gS('dinoSpeed');
-    if(fc.age>700){
-      fc.dead=true;
-    }
+    fc.dy+=0.35;
+    fc.y+=fc.dy;
+    // FIX: scroll with game speed, no random horizontal wobble
+    fc.x-=gS('dinoSpeed');
+
+    if(fc.age>700)fc.dead=true;
 
     // Ground shadow
     const heightAbove=Math.max(0,gY-(fc.y+fc.height));
@@ -805,14 +802,14 @@ function updateJets(){
       ctx.fill();ctx.restore();
     }
 
-    // Wobble while airborne
+    // Wobble draw
     ctx.save();
     ctx.translate(fc.x+fc.width/2,fc.y+fc.height/2);
     ctx.rotate(Math.sin(fc.age*0.12)*0.18);
     ctx.drawImage(cacImg,-fc.width/2,-fc.height/2,fc.width,fc.height);
     ctx.restore();
 
-    // ── PLAYER HIT CHECK — only while airborne (before first bounce) ──
+    // Player hit check — only while airborne (before first bounce)
     if(!fc.landed && getEffHitH()>0){
       if(dino.x < fc.x+fc.width && dino.x+dino.width > fc.x &&
          dino.y < fc.y+fc.height && dino.y+getEffHitH() > fc.y){
@@ -820,27 +817,25 @@ function updateJets(){
           for(let j=0;j<10;j++)impactParticles.push({x:dino.x+dino.width/2,y:dino.y+dino.height/2,dx:(Math.random()-0.5)*5,dy:(Math.random()-0.5)*5,size:3+Math.random()*3,life:25,color:'#ff0'});
           fc.dead=true;continue;
         }
-        handleGameOver();return; // stop processing, game over
+        handleGameOver();return;
       }
     }
 
-    // ── GROUND INTERACTION ──
-  if(fc.y+fc.height>=gY && fc.bounceCount===0){
-        fc.y=gY-fc.height;
-        fc.dy*=-0.40;   // bounce upward
-        fc.dx*=0.65;
-        fc.bounceCount=1;  // now harmless
-        for(let j=0;j<10;j++){
-          impactParticles.push({
-            x:fc.x+fc.width/2,y:gY,
-            dx:(Math.random()-0.5)*4,dy:-Math.random()*3-1,
-            size:Math.random()*3+2,life:28,color:'#fa6'
-          });
-        }
-        screenShakeF=Math.max(screenShakeF,6);screenShakeA=Math.max(screenShakeA,5);
-  }
-    
-    // Off-screen cleanup
+    // Ground interaction
+    if(fc.y+fc.height>=gY && fc.bounceCount===0){
+      fc.y=gY-fc.height;
+      fc.dy*=-0.40;
+      fc.bounceCount=1;
+      for(let j=0;j<10;j++){
+        impactParticles.push({
+          x:fc.x+fc.width/2,y:gY,
+          dx:(Math.random()-0.5)*4,dy:-Math.random()*3-1,
+          size:Math.random()*3+2,life:28,color:'#fa6'
+        });
+      }
+      screenShakeF=Math.max(screenShakeF,6);screenShakeA=Math.max(screenShakeA,5);
+    }
+
     if(fc.x<-140||fc.x>canvas.width+140)fc.dead=true;
   }
 }
@@ -1060,7 +1055,13 @@ function update(){
       if(c.x+c.width<0){cactuses.splice(i,1);i--;try{passSound.currentTime=0;passSound.play();}catch(e){}score++;}
     }
     drawDino();drawForcefield();
-    if(!jetsUnlocked&&score>45){jetsUnlocked=true;spawnJet();}
+    if(!jetsUnlocked&&score>45){
+      jetsUnlocked=true;
+      if(!jetSpawnScheduled){
+        jetSpawnScheduled=true;
+        spawnJet();
+      }
+    }
     if(jetsUnlocked)updateJets();
     updateCapsules();tickPowerups();
     updateImpact();drawHUD();
@@ -1285,7 +1286,6 @@ let gameStarted=false;
 function startGame(){
   applyVols();initState();
   requestAnimationFrame(update);
-  // show start screen
   paused=true;setPauseUI(false);
   const startDiv=document.createElement('div');
   startDiv.id='startScreen';
