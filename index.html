@@ -1044,7 +1044,7 @@ function update(){
       if(c.x+c.width<0){cactuses.splice(i,1);i--;try{passSound.currentTime=0;passSound.play();}catch(e){}score++;}
     }
     drawDino();drawForcefield();
-    if(!jetsUnlocked&&score>45){jetsUnlocked=true;}
+    if(!jetsUnlocked&&score>45){jetsUnlocked=true;spawnJet();}
     if(jetsUnlocked)updateJets();
     updateCapsules();tickPowerups();
     updateImpact();drawHUD();
