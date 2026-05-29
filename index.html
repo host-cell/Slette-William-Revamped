@@ -813,7 +813,7 @@ function spawnJet(){
     x:-120, y:Math.random()*90+20,
     width:100, height:60,
     speed:4+Math.random()*1.5,
-    dropCooldown: Math.floor(Math.random()*30),
+    dropCooldown: Math.floor(Math.random()*30)+30,
     framesOnScreen:0,
     willCrash, crashAt,
     crashTriggered:false,
@@ -839,7 +839,7 @@ function triggerWarning(){
 }
 
 function jetDrop(jet){
-  if(fallingCactuses.length>=2)return;
+  if(fallingCactuses.length>=4)return;
 
   const dropX=jet.x+jet.width/2-10;
 
@@ -855,7 +855,7 @@ function jetDrop(jet){
   fallingCactuses.push({
     x:dropX, y:jet.y+jet.height,
     width:22, height:44,
-    dy:2.5,
+    dy:3.5,
     dx:0,
     bounceCount:0,
     age:0,
@@ -913,7 +913,7 @@ function updateJets(){
         jet.dropCooldown--;
         if(jet.dropCooldown<=0){
           jetDrop(jet);
-          jet.dropCooldown = Math.floor(Math.random()*60)+90;
+          jet.dropCooldown = Math.floor(Math.random()*30)+30;
         }
       }
 
