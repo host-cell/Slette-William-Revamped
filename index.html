@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <title>Slette William; But Revamped</title>
 <link rel="icon" type="image/x-icon" href="./lw.png">
 <style>
@@ -112,6 +115,100 @@ input[type=checkbox]{accent-color:var(--accent2);width:13px;height:13px;cursor:p
   background:rgba(255,80,0,.12);border-bottom:1px solid rgba(255,80,0,.25);color:#ff7a30;
 }
 #warningFlash.show{opacity:1}
+
+/* ─── MOBILE ON-SCREEN CONTROLS ─── */
+#mobileControls{
+  display:none;
+  position:fixed;bottom:0;left:0;width:100%;height:80px;
+  z-index:400;pointer-events:none;
+}
+#mobileJump{
+  pointer-events:auto;
+  position:absolute;right:16px;bottom:12px;
+  width:72px;height:72px;border-radius:50%;
+  background:rgba(255,159,0,.18);border:2px solid rgba(255,159,0,.5);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Bebas Neue',cursive;font-size:13px;letter-spacing:2px;color:var(--accent2);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  transition:background .1s,transform .1s;
+  box-shadow:0 0 20px rgba(255,159,0,.15);
+}
+#mobileJump:active{background:rgba(255,159,0,.38);transform:scale(0.93);}
+#mobilePause{
+  pointer-events:auto;
+  position:absolute;left:16px;bottom:12px;
+  width:64px;height:64px;border-radius:50%;
+  background:rgba(20,20,20,.7);border:2px solid rgba(255,255,255,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:#888;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+  transition:background .1s,transform .1s;
+}
+#mobilePause:active{background:rgba(80,80,80,.5);transform:scale(0.93);}
+
+/* ─── RESPONSIVE TOPBAR ─── */
+@media(max-width:540px){
+  :root{--sh:40px;}
+  .tab-btn{padding:4px 9px;font-size:9px;letter-spacing:1px;}
+  #pause-hint{display:none;}
+  #topbar-score{font-size:12px;letter-spacing:1px;}
+  #topbar{gap:2px;padding:0 6px;}
+}
+@media(max-width:360px){
+  .tab-btn{padding:3px 7px;font-size:8px;}
+}
+
+/* ─── RESPONSIVE PANELS ─── */
+@media(max-width:600px){
+  .panel{
+    max-height:55vh;overflow-y:auto;
+    padding:8px 10px;gap:10px 10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .panel label{min-width:calc(50% - 10px);}
+  input[type=range]{width:100%;max-width:160px;}
+  .section-label{font-size:8px;}
+  .panel-btn{padding:7px 12px;font-size:10px;}
+}
+@media(max-width:400px){
+  .panel label{min-width:100%;}
+}
+
+/* ─── PAUSE CARD MOBILE ─── */
+@media(max-width:540px){
+  #pauseCard-inner{padding:20px 22px 16px;min-width:0;width:82vw;}
+  #pauseCard-inner h2{font-size:36px;letter-spacing:5px;}
+  #pauseCard-inner button{padding:10px 14px;font-size:10px;}
+  .pc-hint{display:none;}
+}
+
+/* ─── DEATH SCREEN MOBILE ─── */
+@media(max-width:540px){
+  .ds-title{font-size:clamp(56px,18vw,140px);letter-spacing:4px;}
+  .ds-score{font-size:28px;letter-spacing:3px;}
+  .ds-hs{font-size:16px;}
+  .ds-new{font-size:13px;}
+  .ds-btns button{padding:12px 18px;font-size:12px;letter-spacing:1px;}
+}
+
+/* ─── PLAYBACK OVERLAY MOBILE ─── */
+@media(max-width:600px){
+  #playbackOverlay{gap:8px;padding:0 6px;}
+  .pb-head{font-size:24px;letter-spacing:4px;}
+  #playbackCanvas{max-height:42vh;}
+  .pb-controls button{padding:9px 12px;font-size:10px;}
+  .spd-row input{width:55px;}
+}
+
+/* ─── TOAST MOBILE ─── */
+@media(max-width:540px){
+  #puToast{bottom:96px;font-size:11px;padding:6px 14px;}
+}
+
+/* ─── SHOW MOBILE CONTROLS ON TOUCH DEVICES ─── */
+@media(hover:none) and (pointer:coarse){
+  #mobileControls{display:block;}
+}
 </style>
 </head>
 <body>
@@ -193,6 +290,11 @@ input[type=checkbox]{accent-color:var(--accent2);width:13px;height:13px;cursor:p
 <div id="puToast"></div>
 <div id="warningFlash">&#9888; INCOMING DROP</div>
 
+<div id="mobileControls">
+  <div id="mobilePause">⏸</div>
+  <div id="mobileJump">JUMP</div>
+</div>
+
 <script>
 console.log(`
 -------
@@ -240,18 +342,14 @@ const bg2=new Audio('./back2.mp3');
 const bg3=new Audio('./end.mp3');
 const bgTracks=[bg1,bg2];
 
-// FIX: all audio sources now properly mapped to their slider categories
 function applyVols(){
   const mv=+S.musicVol.value, sv=+S.sfxVol.value, dv=+S.deathVol.value;
-  // Music category: background tracks + ending theme + pause + playback
   bgTracks.forEach(t=>t.volume=mv);
   bg3.volume=mv;
   pauseTheme.volume=mv;
   playbackTheme.volume=mv;
-  // SFX category: score sounds
   passSound.volume=sv;
   milestoneSound.volume=sv;
-  // Death SFX category: death sequence sounds
   sleSound.volume=dv;
   ttedSound.volume=dv;
   slettedTheme.volume=dv;
@@ -352,8 +450,200 @@ let ttedSoundPlayed=false;
 let capsules=[];
 let tabHiddenAt=null;
 let warnFlashTimer=null;
-// FIX: flag to prevent multiple jet spawn chains from starting
 let jetSpawnScheduled=false;
+
+// ══════════════════════════════════════════════════════════════
+//  JET LIFE SYSTEM
+//  - playerHP: 2 max. Only reduced by falling jet cactuses.
+//  - Ground cactuses still instant-kill (unchanged).
+//  - hpBarOpacity: 0=hidden, 1=visible. Fades in on hit, fades out after full regen.
+//  - hpRegenTimer: counts down 300 frames (5s) before restoring 1 HP.
+//  - hpHitFlash: brief white flash on each pip when hit.
+// ══════════════════════════════════════════════════════════════
+const HP_MAX = 2;
+const HP_REGEN_FRAMES = 300; // 5 seconds at 60fps
+const HP_BAR_FADE_FRAMES = 120; // 2 seconds fade after full regen
+
+let playerHP, hpBarOpacity, hpBarFadeTimer, hpRegenTimer, hpHitFlash, hpInvincFrames;
+
+function initHP(){
+  playerHP = HP_MAX;
+  hpBarOpacity = 0;
+  hpBarFadeTimer = 0;
+  hpRegenTimer = 0;
+  hpHitFlash = [0, 0]; // flash timer per pip
+  hpInvincFrames = 0;  // brief invincibility after hit (prevents double-hit)
+}
+
+function takeFallingCactusHit(){
+  // Invincibility window — prevents eating two hits in the same frame
+  if(hpInvincFrames > 0) return false;
+  if(forceFieldActive) return false; // forcefield handles it externally
+
+  playerHP -= 1;
+  hpBarOpacity = 1;        // snap visible
+  hpBarFadeTimer = 0;      // cancel any fade-out
+  hpRegenTimer = HP_REGEN_FRAMES; // restart regen countdown
+  hpInvincFrames = 60;     // 1 second invincibility
+  // Flash the pip that was just lost
+  hpHitFlash[playerHP] = 20; // playerHP is now the index of the lost pip
+  screenShakeF = Math.max(screenShakeF, 12);
+  screenShakeA = Math.max(screenShakeA, 8);
+
+  // Spawn hit particles on dino
+  for(let j=0;j<16;j++){
+    impactParticles.push({
+      x:dino.x+dino.width/2+(Math.random()-.5)*30,
+      y:dino.y+dino.height/2+(Math.random()-.5)*30,
+      dx:(Math.random()-.5)*7,dy:(Math.random()-.5)*7-2,
+      size:Math.random()*4+2,life:35,color:'#ff4444'
+    });
+  }
+
+  if(playerHP <= 0){
+    handleGameOver();
+    return true; // died
+  }
+  showToast('⚠ HIT! '+playerHP+' HP REMAINING','#ff4444');
+  return false; // survived
+}
+
+function tickHP(){
+  if(hpInvincFrames > 0) hpInvincFrames--;
+
+  if(playerHP < HP_MAX){
+    if(hpRegenTimer > 0){
+      hpRegenTimer--;
+    } else {
+      // Regen one HP
+      playerHP++;
+      hpHitFlash[playerHP-1] = 30; // flash the restored pip green
+      if(playerHP < HP_MAX){
+        hpRegenTimer = HP_REGEN_FRAMES; // keep ticking for next pip
+      } else {
+        // Full HP — start fade-out countdown
+        hpBarFadeTimer = HP_BAR_FADE_FRAMES;
+        showToast('♥ HP RESTORED','#44ff88');
+      }
+    }
+  }
+
+  // Fade out bar
+  if(hpBarFadeTimer > 0){
+    hpBarFadeTimer--;
+    hpBarOpacity = hpBarFadeTimer / HP_BAR_FADE_FRAMES;
+    if(hpBarFadeTimer === 0) hpBarOpacity = 0;
+  }
+
+  // Tick hit flashes
+  for(let i=0;i<HP_MAX;i++){
+    if(hpHitFlash[i]>0) hpHitFlash[i]--;
+  }
+}
+
+function drawHPBar(){
+  if(hpBarOpacity <= 0.01) return;
+
+  const pipW = 34, pipH = 14, gap = 6;
+  const totalW = HP_MAX * pipW + (HP_MAX - 1) * gap;
+  const bx = 14, by = 14;
+
+  ctx.save();
+  ctx.globalAlpha = hpBarOpacity;
+
+  // Background label
+  ctx.font = 'bold 9px "Space Mono",monospace';
+  ctx.fillStyle = '#aaa';
+  ctx.letterSpacing = '2px';
+  ctx.fillText('Physical Health', bx, by - 2);
+
+  for(let i=0; i<HP_MAX; i++){
+    const px = bx + i*(pipW+gap);
+    const py = by + 2;
+    const filled = i < playerHP;
+    const flash = hpHitFlash[i] > 0;
+    const flashPct = hpHitFlash[i] / 30;
+
+    // Outer glow for filled pips
+    if(filled){
+      ctx.shadowColor = flash ? '#44ff88' : '#ff3333';
+      ctx.shadowBlur = 8 + (flash ? flashPct*12 : 0);
+    } else {
+      ctx.shadowBlur = 0;
+    }
+
+    // Pip background
+    ctx.fillStyle = filled
+      ? (flash ? `rgba(${Math.round(68+flashPct*100)},${Math.round(255)},${Math.round(100+flashPct*100)},0.9)` : 'rgba(220,40,40,0.85)')
+      : 'rgba(40,10,10,0.7)';
+
+    // Rounded rect pip
+    ctx.beginPath();
+    ctx.roundRect(px, py, pipW, pipH, 4);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = filled
+      ? (flash ? '#88ffaa' : '#ff6666')
+      : '#441111';
+    ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 0;
+    ctx.stroke();
+
+    // Pip shine
+    if(filled){
+      const shine = ctx.createLinearGradient(px, py, px, py+pipH);
+      shine.addColorStop(0,'rgba(255,255,255,0.25)');
+      shine.addColorStop(0.5,'rgba(255,255,255,0.05)');
+      shine.addColorStop(1,'rgba(0,0,0,0.1)');
+      ctx.fillStyle = shine;
+      ctx.beginPath();
+      ctx.roundRect(px, py, pipW, pipH, 4);
+      ctx.fill();
+    }
+
+    // Heart icon inside pip
+    ctx.shadowBlur = 0;
+    ctx.font = filled ? '10px serif' : '10px serif';
+    ctx.fillStyle = filled ? '#fff' : '#441111';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('♥', px + pipW/2, py + pipH/2);
+  }
+
+  // Regen progress bar (shown when damaged and waiting to regen)
+  if(playerHP < HP_MAX && hpRegenTimer > 0){
+    const regenBarW = totalW;
+    const regenBarH = 3;
+    const regenY = by + pipH + 6;
+    const pct = 1 - (hpRegenTimer / HP_REGEN_FRAMES);
+
+    ctx.fillStyle = 'rgba(20,20,20,0.7)';
+    ctx.beginPath();
+    ctx.roundRect(bx, regenY, regenBarW, regenBarH, 2);
+    ctx.fill();
+
+    // Animated gradient fill
+    const grad = ctx.createLinearGradient(bx, regenY, bx+regenBarW*pct, regenY);
+    grad.addColorStop(0,'rgba(80,200,120,0.9)');
+    grad.addColorStop(1,'rgba(40,255,100,0.6)');
+    ctx.fillStyle = grad;
+    ctx.shadowColor='#44ff88';
+    ctx.shadowBlur=4;
+    ctx.beginPath();
+    ctx.roundRect(bx, regenY, regenBarW*pct, regenBarH, 2);
+    ctx.fill();
+
+    ctx.shadowBlur=0;
+    ctx.font='8px "Space Mono",monospace';
+    ctx.fillStyle='rgba(100,220,140,0.7)';
+    ctx.textAlign='left';
+    ctx.textBaseline='top';
+    ctx.fillText('REGEN '+(Math.ceil(hpRegenTimer/60))+'s', bx, regenY+5);
+  }
+
+  ctx.restore();
+}
 
 setInterval(()=>{
   if(document.hidden&&!gameOver&&!paused){
@@ -487,8 +777,8 @@ function initState(){
   gameOver=false;paused=false;jetsUnlocked=false;lastMilestone=0;
   slettedPhase=0;slettedTrail=[];screenShakeF=0;
   ttedSoundPlayed=false;tabHiddenAt=null;
-  // FIX: reset jet spawn lock on game restart
   jetSpawnScheduled=false;
+  initHP(); // initialise life system
   updateTabLockState();
 }
 function isDefault(){
@@ -511,18 +801,8 @@ function spawnCactus(){
   cactusTimer=setTimeout(spawnCactus,d);
 }
 
-// ══════════════════════════════════════════════════════════════
-//  JET SYSTEM — fixed & balanced
-//  FIXES:
-//   1. jetSpawnScheduled flag prevents multiple spawn chains
-//   2. Drops are rate-limited: max 2 falling cactuses in air at once,
-//      minimum 90-frame cooldown between drops, safe-zone check vs dino X
-//   3. Drop horizontal wobble removed (was causing unkillable angles)
-// ══════════════════════════════════════════════════════════════
-
 function spawnJet(){
   if(paused||gameOver){
-    // Release the lock so the chain can restart when unpaused/restarted
     jetSpawnScheduled=false;
     return;
   }
@@ -533,8 +813,7 @@ function spawnJet(){
     x:-120, y:Math.random()*90+20,
     width:100, height:60,
     speed:4+Math.random()*1.5,
-    // FIX: first drop fires after 90–150 frames on-screen (was 65, too fast)
-    dropCooldown: Math.floor(Math.random()*60)+90,
+    dropCooldown: Math.floor(Math.random()*30),
     framesOnScreen:0,
     willCrash, crashAt,
     crashTriggered:false,
@@ -549,7 +828,6 @@ function spawnJet(){
     active:true,
   });
 
-  // FIX: single recursive chain, 7–14 second spacing between jets
   const nextDelay = Math.floor(Math.random()*7000)+7000;
   setTimeout(spawnJet, nextDelay);
 }
@@ -560,31 +838,29 @@ function triggerWarning(){
   warnFlashTimer=setTimeout(()=>wf.classList.remove('show'),1100);
 }
 
-// FIX: safe drop — checks max falling cactus count AND safe distance from dino
 function jetDrop(jet){
-  // FIX: cap simultaneous falling cactuses at 2 — prevents overwhelming the player
   if(fallingCactuses.length>=2)return;
 
   const dropX=jet.x+jet.width/2-10;
 
-  // Don't drop if too close to a ground cactus
   for(const c of cactuses){
     if(Math.abs(c.x-dropX)<80)return;
   }
 
-  // FIX: don't drop if the drop will land directly on the dino's current X
-  // Give the player at least 180px of escape room on each side
   const dinoMid=dino.x+dino.width/2;
   if(Math.abs(dropX-dinoMid)<180)return;
+
+  triggerWarning();
 
   fallingCactuses.push({
     x:dropX, y:jet.y+jet.height,
     width:22, height:44,
     dy:2.5,
-    dx:0,          // FIX: no horizontal wobble — pure vertical fall is more readable and fair
+    dx:0,
     bounceCount:0,
     age:0,
     dead:false,
+    fromJet:true, // tag so we know to use HP system instead of instant kill
   });
 }
 
@@ -594,7 +870,6 @@ function updateJets(){
   for(let i=jets.length-1;i>=0;i--){
     const jet=jets[i];
 
-    // Exhaust particles (always, while jet is moving)
     if(!jet.fullyLanded){
       for(let k=0;k<2;k++){
         jetParticles.push({
@@ -609,19 +884,16 @@ function updateJets(){
       }
     }
 
-    // ── FLYING (not crashed yet) ──
     if(!jet.crashTriggered){
       jet.x+=jet.speed;
       if(jet.x>-jet.width)jet.framesOnScreen++;
 
-      // Ground shadow
       const shadowX=jet.x+jet.width/2;
       const heightFrac=Math.max(0,1-(jet.y/(gY*0.7)));
       ctx.save();ctx.globalAlpha=0.15*heightFrac;ctx.fillStyle='#000';
       ctx.beginPath();ctx.ellipse(shadowX,gY+2,jet.width*0.45*heightFrac,4,0,0,Math.PI*2);
       ctx.fill();ctx.restore();
 
-      // Trigger crash?
       if(jet.willCrash && jet.x>=jet.crashAt){
         jet.crashTriggered=true;
         jet.vy=-1;
@@ -636,25 +908,20 @@ function updateJets(){
         }
       }
 
-      // Normal flying — drop cactuses
-      // FIX: only drop while jet is on-screen and has clearance; cooldown is 90–150 frames
       const onScreen = jet.framesOnScreen > 30 && jet.x < canvas.width - 160;
       if(onScreen && !jet.willCrash){
         jet.dropCooldown--;
         if(jet.dropCooldown<=0){
           jetDrop(jet);
-          // FIX: next drop cooldown is 90–150 frames (~1.5–2.5 seconds) — was 6–23 (too fast)
           jet.dropCooldown = Math.floor(Math.random()*60)+90;
         }
       }
 
-      // Draw jet
       ctx.drawImage(jetImg,jet.x,jet.y,jet.width,jet.height);
 
       if(!jet.willCrash && jet.x>canvas.width+140){jets.splice(i,1);continue;}
 
     } else if(!jet.fullyLanded){
-      // ── CRASHING ──
       jet.vy+=0.45;
       jet.x+=jet.speed*0.4;
       jet.y+=jet.vy;
@@ -702,7 +969,6 @@ function updateJets(){
       }
 
     } else {
-      // ── LANDED WRECKAGE ──
       jet.landedFrames++;
 
       if(jet.landedFrames<300){
@@ -757,7 +1023,6 @@ function updateJets(){
       jet.x-=gS('dinoSpeed');
     }
 
-    // ── SMOKE PARTICLES ──
     for(let k=jet.smokeParticles.length-1;k>=0;k--){
       const p=jet.smokeParticles[k];
       p.x+=p.dx;p.y+=p.dy;p.life--;
@@ -770,7 +1035,6 @@ function updateJets(){
     }
   }
 
-  // Exhaust trail render
   for(let i=jetParticles.length-1;i>=0;i--){
     const p=jetParticles[i];p.x+=p.dx;p.y+=p.dy;p.life--;
     if(p.life<=0){jetParticles.splice(i,1);continue;}
@@ -778,9 +1042,8 @@ function updateJets(){
     ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0.1,p.size),0,Math.PI*2);ctx.fill();ctx.restore();
   }
 
-  // ══════════════════════════════════════════════════════════════
-  //  FALLING CACTUSES
-  // ══════════════════════════════════════════════════════════════
+  // ── FALLING CACTUSES (jet drops) ──
+  // These use the HP system — NOT instant kill
   for(let i=fallingCactuses.length-1;i>=0;i--){
     const fc=fallingCactuses[i];
     if(fc.dead){fallingCactuses.splice(i,1);continue;}
@@ -788,12 +1051,10 @@ function updateJets(){
     fc.age++;
     fc.dy+=0.35;
     fc.y+=fc.dy;
-    // FIX: scroll with game speed, no random horizontal wobble
     fc.x-=gS('dinoSpeed');
 
     if(fc.age>700)fc.dead=true;
 
-    // Ground shadow
     const heightAbove=Math.max(0,gY-(fc.y+fc.height));
     const shadowAlpha=Math.max(0,0.22*(1-heightAbove/280));
     if(shadowAlpha>0){
@@ -802,26 +1063,27 @@ function updateJets(){
       ctx.fill();ctx.restore();
     }
 
-    // Wobble draw
     ctx.save();
     ctx.translate(fc.x+fc.width/2,fc.y+fc.height/2);
     ctx.rotate(Math.sin(fc.age*0.12)*0.18);
     ctx.drawImage(cacImg,-fc.width/2,-fc.height/2,fc.width,fc.height);
     ctx.restore();
 
-    // Player hit check — only while airborne (before first bounce)
+    // ── HP-BASED hit detection (jet falling cactuses only, while airborne) ──
     if(!fc.landed && getEffHitH()>0){
       if(dino.x < fc.x+fc.width && dino.x+dino.width > fc.x &&
          dino.y < fc.y+fc.height && dino.y+getEffHitH() > fc.y){
         if(forceFieldActive){
-          for(let j=0;j<10;j++)impactParticles.push({x:dino.x+dino.width/2,y:dino.y+dino.height/2,dx:(Math.random()-0.5)*5,dy:(Math.random()-0.5)*5,size:3+Math.random()*3,life:25,color:'#ff0'});
+          for(let j=0;j<10;j++)impactParticles.push({x:dino.x+dino.width/2,y:dino.y+dino.height/2,dx:(Math.random()-.5)*5,dy:(Math.random()-.5)*5,size:3+Math.random()*3,life:25,color:'#ff0'});
           fc.dead=true;continue;
         }
-        handleGameOver();return;
+        // Use HP system — not instant kill
+        fc.dead=true; // consume the cactus regardless
+        takeFallingCactusHit(); // reduces HP; kills if 0
+        continue;
       }
     }
 
-    // Ground interaction
     if(fc.y+fc.height>=gY && fc.bounceCount===0){
       fc.y=gY-fc.height;
       fc.dy*=-0.40;
@@ -851,6 +1113,7 @@ function updateImpact(){
 }
 
 function drawDino(){
+  // Red tint on dino while invincible after a jet hit
   ctx.save();ctx.translate(dino.x+dino.width/2,dino.y+dino.height/2);
   const stretch=Math.max(.65,Math.min(1.4,1-dino.dy*.03));
   ctx.scale(1/Math.sqrt(stretch),stretch);
@@ -859,6 +1122,11 @@ function drawDino(){
       x:dino.x+dino.width/2+(Math.random()-.5)*dino.width*.4,y:dino.y+dino.height,
       dx:(Math.random()-.5)*1.5,dy:-Math.random()*.5,size:Math.random()*2+1,life:15,color:'rgba(200,200,200,.6)'
     });
+  }
+  // Brief red overlay while invincible
+  if(hpInvincFrames > 0 && hpInvincFrames % 6 < 3){
+    ctx.globalAlpha = 0.5;
+    ctx.filter = 'sepia(1) saturate(10) hue-rotate(-10deg)';
   }
   ctx.drawImage(dinoImg,-dino.width/2,-dino.height/2,dino.width,dino.height);
   ctx.restore();
@@ -918,6 +1186,7 @@ function drawHUD(){
   ctx.restore();
   document.getElementById('topbar-score').textContent='SCORE: '+Math.floor(score);
   drawBuffBar();
+  drawHPBar(); // draw jet HP bar (auto-hidden when full)
 }
 
 function applyShake(){
@@ -1045,6 +1314,7 @@ function update(){
       ctx.save();ctx.globalAlpha=.18;ctx.fillStyle='#000';ctx.fillRect(c.x+4,ground()+62,c.width,6);ctx.restore();
       ctx.drawImage(cacImg,c.x,c.y,c.width,c.height);
       const hh=getEffHitH();
+      // Ground cactuses: INSTANT KILL (unchanged)
       if(hh>0&&dino.x<c.x+c.width&&dino.x+dino.width>c.x&&dino.y<c.y+c.height&&dino.y+hh>c.y){
         if(forceFieldActive){
           for(let j=0;j<12;j++)impactParticles.push({x:dino.x+dino.width/2,y:dino.y+dino.height/2,dx:(Math.random()-.5)*6,dy:(Math.random()-.5)*6,size:3+Math.random()*3,life:28,color:'#ff0'});
@@ -1064,6 +1334,7 @@ function update(){
     }
     if(jetsUnlocked)updateJets();
     updateCapsules();tickPowerups();
+    tickHP(); // tick the jet life system every frame
     updateImpact();drawHUD();
     captureFrame();frameCount++;
     if(score>=300)triggerSecretEnding();
@@ -1088,7 +1359,11 @@ function jump(){
   if(!dino.isJumping){dino.dy=-gS('jumpPower');dino.isJumping=true;}
   if(!musicPlaying)playTrack();
 }
-function setPauseUI(on){canvas.classList.toggle('paused',on);document.getElementById('pauseCard').classList.toggle('visible',on);}
+function setPauseUI(on){
+  canvas.classList.toggle('paused',on);
+  document.getElementById('pauseCard').classList.toggle('visible',on);
+  document.getElementById('mobilePause').textContent=on?'▶':'⏸';
+}
 function togglePause(){
   if(gameOver)return;
   pauseTheme.play();
@@ -1122,6 +1397,28 @@ document.addEventListener('keydown',e=>{
 });
 canvas.addEventListener('click',()=>{if(paused){resumeGame();return;}jump();});
 canvas.addEventListener('touchstart',e=>{e.preventDefault();if(paused){resumeGame();return;}jump();},{passive:false});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+document.getElementById('mobileJump').addEventListener('touchstart',e=>{
+  e.preventDefault();e.stopPropagation();
+  if(paused){resumeGame();return;}jump();
+},{passive:false});
+document.getElementById('mobilePause').addEventListener('touchstart',e=>{
+  e.preventDefault();e.stopPropagation();
+  if(gameOver)return;
+  if(paused)resumeGame();else togglePause();
+},{passive:false});
+
+document.getElementById('pbTimeline').addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const r=document.getElementById('pbTimeline').getBoundingClientRect();
+  pbIdx=((e.touches[0].clientX-r.left)/r.width)*pbFrames.length;
+},{passive:false});
+document.getElementById('pbTimeline').addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const r=document.getElementById('pbTimeline').getBoundingClientRect();
+  pbIdx=Math.max(0,Math.min(pbFrames.length-1,((e.touches[0].clientX-r.left)/r.width)*pbFrames.length));
+},{passive:false});
 
 function playTrack(){
   musicPlaying=true;
@@ -1297,8 +1594,12 @@ function startGame(){
   });
   startDiv.innerHTML=`
     <div style="font-size:clamp(48px,12vw,120px);letter-spacing:8px;color:#ff9f00;text-shadow:0 0 40px rgba(255,159,0,.6)">SLETTE WILLIAM</div>
-    <div style="font-family:'Space Mono',monospace;font-size:14px;color:#888;letter-spacing:3px;margin-top:12px;text-transform:uppercase">Press Space or Click to Start</div>
+    <div style="font-family:'Space Mono',monospace;font-size:14px;color:#888;letter-spacing:3px;margin-top:12px;text-transform:uppercase" id="startHint">Press Space or Click to Start</div>
   `;
+  if(window.matchMedia('(hover:none) and (pointer:coarse)').matches){
+    const hint=startDiv.querySelector('#startHint');
+    if(hint)hint.textContent='Tap to Start';
+  }
   document.body.appendChild(startDiv);
   function doStart(){
     if(gameStarted)return;
@@ -1310,6 +1611,7 @@ function startGame(){
   }
   document.addEventListener('keydown',e=>{if(e.code==='Space')doStart();},{once:true});
   document.addEventListener('click',doStart,{once:true});
+  startDiv.addEventListener('touchstart',e=>{e.preventDefault();doStart();},{once:true,passive:false});
   console.log("[WAI] Game system loaded");
 }
 
