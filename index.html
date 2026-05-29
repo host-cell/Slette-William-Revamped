@@ -671,7 +671,7 @@ function saveBestRun(){
 
 const POWERUP_TYPES=[
   {id:'lowGrav',name:'LOW GRAVITY',color:'#88aaff',icon:'◈',duration:600,apply:()=>{activeBuffs.gravity={base:gS('gravity'),mult:.35};},remove:()=>{delete activeBuffs.gravity;}},
-  {id:'slowSpawn',name:'SLOW CACTUS',color:'aaff88',icon:'◇',duration:500,apply:()=>{activeBuffs.spawnMult=.45;},remove:()=>{delete activeBuffs.spawnMult;}},
+  {id:'slowSpawn',name:'SLOW CACTUS',color:'#aaff88',icon:'◇',duration:500,apply:()=>{activeBuffs.spawnMult=.45;},remove:()=>{delete activeBuffs.spawnMult;}},
   {id:'noHardJump',name:'NO HARD JUMPS',color:'#ffaa88',icon:'◆',duration:700,apply:()=>{activeBuffs.noHard=true;},remove:()=>{delete activeBuffs.noHard;}},
   {id:'smallHit',name:'TINY HITBOX',color:'#ff88ff',icon:'◉',duration:550,apply:()=>{activeBuffs.hitMult=.3;},remove:()=>{delete activeBuffs.hitMult;}},
   {id:'forcefield',name:'FORCEFIELD',color:'#ffff00',icon:'★',duration:400,apply:()=>{forceFieldActive=true;activeBuffs.forcefield=true;},remove:()=>{forceFieldActive=false;delete activeBuffs.forcefield;}},
