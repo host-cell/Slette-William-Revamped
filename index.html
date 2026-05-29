@@ -194,6 +194,18 @@ input[type=checkbox]{accent-color:var(--accent2);width:13px;height:13px;cursor:p
 <div id="warningFlash">&#9888; INCOMING DROP</div>
 
 <script>
+console.log(`
+-------
+Slette William; Revamped (Alpha)
+Console
+-------
+Expect changes, bugs and unfairness (rarely).
+The changes will balance the systems and the randomness that there is to offer.
+Thanks!
+[WAI] Loading Slette William,
+      If errors appear, please report it in the issues tab in github.
+`)
+
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 const SH     = 44;
@@ -214,6 +226,8 @@ const jetImg =new Image(); jetImg.src ='./fw.png';
 let toLoad=3;
 [dinoImg,cacImg,jetImg].forEach(img=>{img.onload=img.onerror=()=>{if(--toLoad===0)startGame();};});
 
+console.log("[WAI] Images loaded")
+
 const passSound=new Audio('./sound.mp3');
 const playbackTheme=new Audio('./playbacktheme.mp3');
 const pauseTheme=new Audio('./pausetheme.mp3');
@@ -231,6 +245,8 @@ function applyVols(){
   passSound.volume=sv; milestoneSound.volume=sv;
   sleSound.volume=dv; ttedSound.volume=dv;
 }
+
+console.log("[WAI] Sound effects and themes loaded! (.mp3)")
 
 const RANGE_IDS=['spawnFreq','dinoSpeed','jumpPower','gravity','scoreRate','hardJump','hitHeight','musicVol','sfxVol','deathVol','ghostOpacity'];
 const CB_IDS=['ghostEnabled','ghostPrediction','ghostTimer'];
@@ -495,7 +511,7 @@ function spawnCactus(){
 
 function spawnJet(){
   if(paused||gameOver)return;
-  const willCrash=Math.random()<0.20;
+  const willCrash=Math.random()<0.30;
   // crashAt: somewhere between 30% and 70% of canvas width so it lands on screen
   const crashAt=willCrash?(canvas.width*(0.30+Math.random()*0.40)):Infinity;
 
@@ -505,7 +521,7 @@ function spawnJet(){
     width:100, height:60,
     speed:4+Math.random()*1.5,
     // drop logic
-    dropCooldown:Math.random(60, 120),          // first drop fires after 90 frames of being on-screen
+    dropCooldown:Math.random(100, 150)*65,          // first drop fires after 90 frames of being on-screen
     framesOnScreen:0,         // incremented once jet enters canvas
     // crash logic
     willCrash, crashAt,
@@ -607,7 +623,7 @@ function updateJets(){
         jet.dropCooldown--;
         if(jet.dropCooldown<=0){
           jetDrop(jet);
-          jet.dropCooldown = Math.floor(Math.random()*14)+3;
+          jet.dropCooldown = Math.floor(Math.random()*23)+6;
         }
       }
 
@@ -1190,6 +1206,8 @@ function createOverlay(bg='black'){
   });
   return el;
 }
+console.log("[WAI] Loaded systems, HTML, CSS modifiers")
+
 function addStyle(css){const s=document.createElement('style');s.textContent=css;document.head.appendChild(s);}
 function showEndingCard(overlay,title,sub,delay=0){
   addStyle(`@keyframes __fi{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}`);
@@ -1261,6 +1279,8 @@ function ending3(){
   setTimeout(()=>{const fade=document.createElement('div');Object.assign(fade.style,{position:'absolute',top:'0',left:'0',width:'100%',height:'100%',background:'#000',zIndex:'100009',opacity:'0',animation:'__e3fade 3s 1s ease forwards'});ov.appendChild(fade);try{bg3.currentTime=0;bg3.play();}catch(e){}showEndingCard(ov,'WILLIAM RODE INTO THE SUNSET','A legend forever. The cactuses never caught him.',1500);},9000);
 }
 
+console.log("[WAI] Endings loaded")
+
 let gameStarted=false;
 function startGame(){
   applyVols();initState();
@@ -1290,6 +1310,7 @@ function startGame(){
   }
   document.addEventListener('keydown',e=>{if(e.code==='Space')doStart();},{once:true});
   document.addEventListener('click',doStart,{once:true});
+  console.log("[WAI] Game system loaded");
 }
 
 if(toLoad===0)startGame();
